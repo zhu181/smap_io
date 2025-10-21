@@ -87,7 +87,7 @@ class EASE36CellGrid(CellGrid):
 class EASE9CellGrid(CellGrid):
     """ CellGrid version of EASE9 Grid as used in SMAP 9km """
 
-    def __init__(self, bbox=None, margin=(None, 1), only_land=False):
+    def __init__(self, bbox=None, margin=(2, 2), only_land=False):
         """
         Parameters
         ----------
