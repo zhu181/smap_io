@@ -32,8 +32,8 @@ import argparse
 from datetime import datetime
 
 from repurpose.img2ts import Img2Ts
-from smap_io.grid import EASE36CellGrid
-from smap_io.interface import SPL3SMP_Ds
+from smap_io.grid import EASE36CellGrid, EASE9CellGrid
+from smap_io.interface import SPL3SMP_Ds,SPL3SMP_E_Ds
 
 
 def reshuffle(input_root,
@@ -43,6 +43,7 @@ def reshuffle(input_root,
               parameters,
               imgbuffer=200,
               time_key='tb_time_seconds',
+              product="SPL3SMP",
               ignore_failed_reads=False,
               **ds_kwargs):
     """
@@ -79,11 +80,20 @@ def reshuffle(input_root,
         Time attribute key in the input files.
     """
     if 'grid' not in ds_kwargs.keys():
-        ds_kwargs['grid'] = EASE36CellGrid()
+        if product=="SPL3SMP":
+            ds_kwargs['grid'] = EASE36CellGrid()
+        elif product=="SPL3SMP_E":
+            ds_kwargs['grid'] = EASE9CellGrid()
+        else:
+            raise ValueError("Unknown product {}".format(product))
     ds_kwargs['parameter'] = parameters
     ds_kwargs['flatten'] = True
-
-    input_dataset = SPL3SMP_Ds(input_root, time_key=time_key, **ds_kwargs)
+    if product=="SPL3SMP":
+        input_dataset = SPL3SMP_Ds(input_root, time_key=time_key, **ds_kwargs)
+    elif product=="SPL3SMP_E":
+        input_dataset = SPL3SMP_E_Ds(input_root, time_key=time_key, **ds_kwargs)
+    else:
+        raise ValueError("Unknown product {}".format(product))
 
     # If the output folder doesn't exist, create it
     if not os.path.exists(outputpath):
