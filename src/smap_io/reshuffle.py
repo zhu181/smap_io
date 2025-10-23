@@ -119,6 +119,7 @@ def reshuffle(input_root,
         ts_attributes=data.metadata,  # Metadata for time-series
         time_units='seconds since 2000-01-01 12:00:00',  # Time unit format
         # Specifies AM/PM/BOTH overpass filtering
+        ignore_errors=True
     )
 
     reshuffler.calc()
