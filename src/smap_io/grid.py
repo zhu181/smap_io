@@ -1,8 +1,10 @@
-from pygeogrids.grids import CellGrid, BasicGrid, lonlat2cell
-from ease_grid import EASE2_grid
-import numpy as np
-from pygeogrids.netcdf import load_grid
 import os
+
+import numpy as np
+from ease_grid import EASE2_grid
+from pygeogrids.grids import BasicGrid, CellGrid, lonlat2cell
+from pygeogrids.netcdf import load_grid
+
 
 class EASE36CellGrid(CellGrid):
     """ CellGrid version of EASE36 Grid as used in SMAP 36km """
@@ -71,6 +73,9 @@ class EASE36CellGrid(CellGrid):
                              len(np.unique(self.activearrlon)))
 
     def cut(self) -> CellGrid:
+        """
+        Cut the grid to the active subset.
+        """
         dy = len(np.unique(self.activearrlat))
         dx = len(np.unique(self.activearrlon))
         # create a new grid from the active subset
@@ -86,7 +91,7 @@ class EASE36CellGrid(CellGrid):
 class EASE9CellGrid(CellGrid):
     """ CellGrid version of EASE9 Grid as used in SMAP 9km """
 
-    def __init__(self, bbox=None, margin=(2, 2), only_land=False):
+    def __init__(self, bbox=None, margin=(None, 1), only_land=False):
         """
         Parameters
         ----------
@@ -107,7 +112,7 @@ class EASE9CellGrid(CellGrid):
 
         if margin is not None:
             lons = lons[margin[0]:-margin[0]] if margin[0] is not None else lons
-        lats = ease9.latdim
+
         if margin is not None:
             lats = lats[margin[1]:-margin[1]] if margin[1] is not None else lats
 
@@ -130,6 +135,7 @@ class EASE9CellGrid(CellGrid):
                 lonmax=self.bbox[2])
 
         self.only_land = only_land
+        # TODO implement only_land for EASE9
         # if self.only_land:
         #     lgpis = load_grid(
         #         os.path.join(
@@ -150,6 +156,9 @@ class EASE9CellGrid(CellGrid):
                              len(np.unique(self.activearrlon)))
 
     def cut(self) -> CellGrid:
+        """
+        Cut the grid to the active subset.
+        """
         dy = len(np.unique(self.activearrlat))
         dx = len(np.unique(self.activearrlon))
         # create a new grid from the active subset
@@ -161,4 +170,3 @@ class EASE9CellGrid(CellGrid):
             gpis=self.activegpis,
             subset=None,
             shape=shape).to_cell_grid(self.cellsize)
-
