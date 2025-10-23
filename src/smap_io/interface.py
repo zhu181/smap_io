@@ -895,7 +895,7 @@ class SPL3SMP_E_Img(ImageBase):
 
                 else:
                     pass
-
+        ds.close()
 
         if self.flatten:
             return Image(self.grid.activearrlon, self.grid.activearrlat,
