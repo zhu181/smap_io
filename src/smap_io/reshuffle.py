@@ -86,6 +86,11 @@ def reshuffle(input_root,
             ds_kwargs['grid'] = EASE9CellGrid()
         else:
             raise ValueError("Unknown product {}".format(product))
+    # Allow caller to pass desired output dtypes for time series via
+    # ds_kwargs['ts_dtypes']. If provided, Img2Ts will attempt to cast
+    # image slices to these dtypes before stacking (reduces memory).
+    ts_dtypes = ds_kwargs.pop('ts_dtypes', None) if 'ts_dtypes' in ds_kwargs else None
+
     ds_kwargs['parameter'] = parameters
     ds_kwargs['flatten'] = True
     if product=="SPL3SMP":
@@ -105,7 +110,7 @@ def reshuffle(input_root,
     # Define the input grid, applying user-specified subgrid or using the default
     input_grid = ds_kwargs['grid'].cut() if \
         isinstance(ds_kwargs['grid'], EASE36CellGrid) else ds_kwargs['grid']
-
+    
     reshuffler = Img2Ts(
         input_dataset=input_dataset,
         outputpath=outputpath,
@@ -120,7 +125,8 @@ def reshuffle(input_root,
         ts_attributes=data.metadata,  # Metadata for time-series
         time_units='seconds since 2000-01-01 12:00:00',  # Time unit format
         # Specifies AM/PM/BOTH overpass filtering
-        ignore_errors=ignore_failed_reads # Ignore failed reads
+        ignore_errors=ignore_failed_reads,  # Ignore failed reads
+        ts_dtypes=ts_dtypes
     )
 
     reshuffler.calc()
