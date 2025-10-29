@@ -183,54 +183,26 @@ class SPL3SMP_Img_Base(ImageBase):
             else:
                 op = "PM"
 
-            op_str = "_" + op.upper() if op else ""
-            sm_field = self.overpass_templ.format(orbit=op_str)
+            overpass_str = "_" + op.upper() if op else ""
+            sm_field = self.overpass_templ.format(orbit=overpass_str)
 
             if sm_field not in ds.keys():
                 raise NameError(
                     sm_field, "Field does not exists. Try deactivating overpass option."
                 )
 
-            if op_str == "_AM":
-                op_str = ""
+            if overpass_str == "_AM":
+                overpass_str = ""
             else:
-                op_str = "_pm"
+                overpass_str = "_pm"
 
             for parameter in self.parameters:
-                metadata = {}
-                param = ds[sm_field][parameter + op_str]
-                data = np.flipud(param[:]).flatten()
-
-                if self.grid is not None:
-                    data = data[self.grid.activegpis]
-                # mask according to valid_min, valid_max and _FillValue
-                try:
-                    fill_value = param.attrs["_FillValue"]
-                    valid_min = param.attrs["valid_min"]
-                    valid_max = param.attrs["valid_max"]
-                    data = np.where(
-                        np.logical_or(data < valid_min, data > valid_max),
-                        fill_value,
-                        data,
-                    )
-                except KeyError:
-                    pass
-
-                # fill metadata dictionary with metadata from image
-                for key in param.attrs:
-                    metadata[key] = param.attrs[key]
+                metadata, data = self.get_parameter_data(ds, sm_field, parameter, overpass_str)
 
                 ret_param_name = parameter
 
                 if self.var_overpass_str:
-                    if op is None:
-                        warnings.warn(
-                            "Renaming variable only possible if overpass in "
-                            "given."
-                            " Use names as in file."
-                        )
-                        ret_param_name = parameter
-                    elif not parameter.endswith(f"_{op.lower()}"):
+                    if not parameter.endswith(f"_{op.lower()}"):
                         ret_param_name = parameter + f"_{op.lower()}"
 
                 return_data[ret_param_name] = data
@@ -251,28 +223,7 @@ class SPL3SMP_Img_Base(ImageBase):
                 overpass_str = ""
 
             for parameter in self.parameters:
-                metadata = {}
-                param = ds[sm_field][parameter + overpass_str]
-                data = np.flipud(param[:]).flatten()
-
-                if self.grid is not None:
-                    data = data[self.grid.activegpis]
-                # mask according to valid_min, valid_max and _FillValue
-                try:
-                    fill_value = param.attrs["_FillValue"]
-                    valid_min = param.attrs["valid_min"]
-                    valid_max = param.attrs["valid_max"]
-                    data = np.where(
-                        np.logical_or(data < valid_min, data > valid_max),
-                        fill_value,
-                        data,
-                    )
-                except KeyError:
-                    pass
-
-                # fill metadata dictionary with metadata from image
-                for key in param.attrs:
-                    metadata[key] = param.attrs[key]
+                metadata, data = self.get_parameter_data(ds, sm_field, parameter, overpass_str)
 
                 ret_param_name = parameter
 
@@ -291,7 +242,6 @@ class SPL3SMP_Img_Base(ImageBase):
                         else:
                             # Append overpass or maintain current logic for other parameters
                             ret_param_name = parameter + f"_{overpass.lower()}"
-                        # ret_param_name = parameter + f'_{overpass.lower()}'
 
                 return_data[ret_param_name] = data
                 return_meta[ret_param_name] = metadata
@@ -350,21 +300,6 @@ class SPL3SMP_Img_Base(ImageBase):
                 "valid_min": 1,
                 "valid_max": 2,
             }
-        else:
-
-            if overpass == "AM":
-                if self.var_overpass_str:
-                    return_data = return_data
-
-                else:
-                    pass
-            elif overpass == "PM":
-                if self.var_overpass_str:
-
-                    return_data = return_data
-
-                else:
-                    pass
 
         if self.flatten:
             return Image(
@@ -405,6 +340,31 @@ class SPL3SMP_Img_Base(ImageBase):
             return Image(
                 lons, lats, data, return_meta, timestamp, timekey=self.time_key
             )
+
+    def get_parameter_data(self, ds, sm_field, parameter, overpass_str):
+        metadata = {}
+        param = ds[sm_field][parameter + overpass_str]
+        data = np.flipud(param[:]).flatten()
+
+        if self.grid is not None:
+            data = data[self.grid.activegpis]
+                # mask according to valid_min, valid_max and _FillValue
+        try:
+            fill_value = param.attrs["_FillValue"]
+            valid_min = param.attrs["valid_min"]
+            valid_max = param.attrs["valid_max"]
+            data = np.where(
+                        np.logical_or(data < valid_min, data > valid_max),
+                        fill_value,
+                        data,
+                    )
+        except KeyError:
+            pass
+
+                # fill metadata dictionary with metadata from image
+        for key in param.attrs:
+            metadata[key] = param.attrs[key]
+        return metadata,data
 
     def write(self, data):
         raise NotImplementedError()
