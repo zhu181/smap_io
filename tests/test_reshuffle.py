@@ -48,7 +48,8 @@ def test_reshuffle(only_land):
     time_key = 'tb_time_seconds'
     bbox = ['-5', '52', '0', '57']
     kwargs = ["--crid", "16515", "--overpass", 'PM', "--var_overpass_str", 'False'] + ['--bbox', *bbox]
-
+    if only_land:
+        kwargs += ["--land_points", "True"]
     with tempfile.TemporaryDirectory() as ts_path:
         args = [inpath, ts_path, startdate, enddate, time_key] + parameters + kwargs
 
@@ -81,7 +82,8 @@ def test_reshuffle_am(only_land):
     time_key = 'tb_time_seconds'
     bbox = ['-5', '52', '0', '57']
     kwargs = ["--crid", "16515", "--overpass", 'AM', "--var_overpass_str", 'False'] + ['--bbox', *bbox]
-
+    if only_land:
+        kwargs += ["--land_points", "True"]
     with tempfile.TemporaryDirectory() as ts_path:
         args = [inpath, ts_path, startdate, enddate, time_key] + parameters + kwargs
 
@@ -114,7 +116,8 @@ def test_reshuffle_both(only_land):
     time_key = 'tb_time_seconds'
     bbox = ['-5', '52', '0', '57']
     kwargs = ["--crid", "16515", "--overpass", 'BOTH', "--var_overpass_str", 'True'] + ['--bbox', *bbox]
-
+    if only_land:
+        kwargs += ["--land_points", "True"]
     with tempfile.TemporaryDirectory() as ts_path:
         args = [inpath, ts_path, startdate, enddate, time_key] + parameters + kwargs
 
@@ -147,7 +150,8 @@ def test_reshuffle_overpass_is_none(only_land):
     time_key = 'tb_time_seconds'
     bbox = ['-5', '52', '0', '57']
     kwargs = ["--crid", "16515"] + ['--bbox', *bbox]
-
+    if only_land:
+        kwargs += ["--land_points", "True"]
     with tempfile.TemporaryDirectory() as ts_path:
         args = [inpath, ts_path, startdate, enddate, time_key] + parameters + kwargs
 
