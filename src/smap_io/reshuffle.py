@@ -108,9 +108,9 @@ def reshuffle(input_root,
     data = input_dataset.read(startdate)
 
     # Define the input grid, applying user-specified subgrid or using the default
-    input_grid = ds_kwargs['grid'].cut() if \
-        isinstance(ds_kwargs['grid'], EASE36CellGrid) else ds_kwargs['grid']
-    
+    input_grid = ds_kwargs['grid'].cut()
+    # if isinstance(ds_kwargs['grid'], EASE36CellGrid) else ds_kwargs['grid']
+
     reshuffler = Img2Ts(
         input_dataset=input_dataset,
         outputpath=outputpath,
