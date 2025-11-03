@@ -2,24 +2,60 @@
 Download SMAP via earthaccess.
 """
 
+import argparse
+import glob
 import os
 import sys
-import glob
-import argparse
-from functools import partial
+from datetime import datetime, timedelta
+import time
 
-import trollsift.parser as parser
-from datetime import datetime
-from datedown.interface import mkdate
-from datedown.dates import daily
-from datedown.urlcreator import create_dt_url
-from datedown.fname_creator import create_dt_fpath
-from datedown.interface import download_by_dt
-import subprocess
-import tempfile
-from multiprocessing import Pool
 import earthaccess
+import trollsift.parser as parser
+from earthaccess.exceptions import LoginAttemptFailure
 
+def mkdate(datestring):
+    """
+    Create datetime object from date string.
+
+    Parameters
+    ----------
+    datestring : str
+        Date string in format 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM'
+    
+    Returns
+    -------
+    datetime.datetime
+        Corresponding datetime object
+    """
+    if len(datestring) == 10:
+        return datetime.strptime(datestring, '%Y-%m-%d')
+    if len(datestring) == 16:
+        return datetime.strptime(datestring, '%Y-%m-%dT%H:%M')
+
+def daily(start, end):
+    """
+    Iterate over list of daily datetime objects.
+
+    Parameters
+    ----------
+    start: datetime.datetime
+        first date yielded
+    end: datetime.datetime
+        last date yielded
+
+    Yields
+    ------
+    dt: datetime.datetime
+        datetime object between start and end in daily steps.
+    """
+    td = timedelta(days=1)
+    dt = start
+    yield dt
+    while True:
+        dt = dt + td
+        if dt > end:
+            break
+        yield dt
 
 def dates_empty_folders(img_dir, crid=None):
     """
@@ -39,17 +75,17 @@ def dates_empty_folders(img_dir, crid=None):
     """
 
     missing = []
-    for dir, subdirs, files in os.walk(img_dir):
+    for root, subdirs, files in os.walk(img_dir):
         if len(subdirs) != 0:
             continue
         if crid:
             cont = [str(crid) in afile for afile in files]
             if not any(cont):
-                missing.append(dir)
+                missing.append(root)
         else:
             cont = True if len(files) > 0 else False
             if not cont:
-                missing.append(dir)
+                missing.append(root)
 
     miss_dates = [
         datetime.strptime(os.path.basename(os.path.normpath(miss_path)), "%Y.%m.%d")
@@ -58,10 +94,12 @@ def dates_empty_folders(img_dir, crid=None):
 
     return sorted(miss_dates)
 
+
 def folder_get_first_last(
-        root,
-        fmt="SMAP_L3_SM_P_{time:%Y%m%d}_R{orbit:05d}_{proc_number:03d}.h5",
-        subpaths=['{:%Y.%m.%d}']):
+    root,
+    fmt="SMAP_L3_SM_P_{time:%Y%m%d}_R{orbit:05d}_{proc_number:03d}.h5",
+    subpaths=None,
+):
     """
     Get first and last product which exists under the root folder.
 
@@ -72,7 +110,7 @@ def folder_get_first_last(
     fmt: string, optional
         formatting string
     subpaths: list, optional
-        format of the subdirectories under root.
+        format of the subdirectories under root. If None, defaults to ["{:%Y.%m.%d}"].
 
     Returns
     -------
@@ -81,22 +119,23 @@ def folder_get_first_last(
     end: datetime.datetime
         Last found product datetime
     """
+    if subpaths is None:
+        subpaths = ["{:%Y.%m.%d}"]
+
     start = None
     end = None
     first_folder = get_first_folder(root, subpaths)
     last_folder = get_last_folder(root, subpaths)
 
     if first_folder is not None:
-        files = sorted(
-            glob.glob(os.path.join(first_folder, parser.globify(fmt))))
+        files = sorted(glob.glob(os.path.join(first_folder, parser.globify(fmt))))
         data = parser.parse(fmt, os.path.split(files[0])[1])
-        start = data['time']
+        start = data["time"]
 
     if last_folder is not None:
-        files = sorted(
-            glob.glob(os.path.join(last_folder, parser.globify(fmt))))
+        files = sorted(glob.glob(os.path.join(last_folder, parser.globify(fmt))))
         data = parser.parse(fmt, os.path.split(files[-1])[1])
-        end = data['time']
+        end = data["time"]
 
     return start, end
 
@@ -169,7 +208,8 @@ def parse_args(args):
         description="Download SMAP data. Register at https://urs.earthdata.nasa.gov/ first."
     )
     parser.add_argument(
-        "localroot", help='Root of local filesystem where the data is stored.')
+        "localroot", help="Root of local filesystem where the data is stored."
+    )
     parser.add_argument(
         "-s",
         "--start",
@@ -178,33 +218,50 @@ def parse_args(args):
             "Startdate. Either in format YYYY-MM-DD or YYYY-MM-DDTHH:MM."
             " If not given then the target folder is scanned for a start date."
             " If no data is found there then the first available date of the product is used."
-        ))
+        ),
+    )
     parser.add_argument(
         "-e",
         "--end",
         type=mkdate,
-        help=("Enddate. Either in format YYYY-MM-DD or YYYY-MM-DDTHH:MM."
-              " If not given then the current date is used."))
+        help=(
+            "Enddate. Either in format YYYY-MM-DD or YYYY-MM-DDTHH:MM."
+            " If not given then the current date is used."
+        ),
+    )
     parser.add_argument(
-        "--product",
+        "--product_short_name",
         type=str,
-        default="SPL3SMP.008",
-        help='SMAP product to download. (default: SPL3SMP.008).'
-        ' See also https://n5eil01u.ecs.nsidc.org/SMAP/ ')
+        default="SPL3SMP",
+        help="Short name of the SMAP product to download. (default: SPL3SMP)."
+        " See also https://n5eil01u.ecs.nsidc.org/SMAP/ ",
+    )
     parser.add_argument(
-        "--filetypes",
-        nargs="*",
-        default=["h5", "nc"],
-        help="File types (extensions) to download. Files with"
-        "other extensions are ignored. "
-        "Default is equivalent to --filetypes h5 nc")
-    parser.add_argument("--username", help='Username to use for download.')
-    parser.add_argument("--password", help='password to use for download.')
+        "--version",
+        type=str,
+        default="008",
+        help="Version of the SMAP product to download. (default: 008).",
+    )
+    parser.add_argument("--username", help="Username to use for download.")
+    parser.add_argument("--password", help="password to use for download.")
     parser.add_argument(
-        "--n_proc",
-        default=1,
+        "--n_threads",
+        default=8,
         type=int,
-        help='Number of parallel processes to use for downloading.')
+        help="Number of threads to use for downloading.",
+    )
+    parser.add_argument(
+        "--retries",
+        default=3,
+        type=int,
+        help="Number of times to retry a failed download (default: 3).",
+    )
+    parser.add_argument(
+        "--retry-wait",
+        default=5.0,
+        type=float,
+        help="Initial wait time in seconds between retries; exponential backoff is applied (default: 5.0).",
+    )
     args = parser.parse_args(args)
     # set defaults that can not be handled by argparse
 
@@ -218,51 +275,80 @@ def parse_args(args):
         if args.end is None:
             args.end = datetime.now()
 
-    args.urlroot = 'https://n5eil01u.ecs.nsidc.org'
-    args.urlsubdirs = ['SMAP', args.product, '%Y.%m.%d']
-    args.localsubdirs = ['%Y.%m.%d']
-
     print(
         f"Downloading SMAP {args.product} data from {args.start.isoformat()} "
-        f"to {args.end.isoformat()} into folder {args.localroot}.")
+        f"to {args.end.isoformat()} into folder {args.localroot}."
+    )
 
     return args
 
+
+def download_with_retries(result, local_path, retries, retry_wait):
+    for attempt in range(retries):
+        try:
+            earthaccess.download(result, local_path=local_path)
+            success = True
+            break
+        except Exception as e:
+            # if more attempts remain, wait with exponential backoff and retry
+            if attempt < retries - 1:
+                wait = retry_wait * (2**attempt)
+                print(
+                    f"Download of {result.get('title', 'unknown')} failed on attempt {attempt+1}/{retries}: {e}. Retrying in {wait} seconds..."
+                )
+                time.sleep(wait)
+            else:
+                print(
+                    f"Download of {result.get('title', 'unknown')} failed after {retries} attempts: {e}"
+                )
+
+    return success
+
+
 def main(args):
     args = parse_args(args)
+    try:
+        if args.username and args.password:
+            os.environ["EARTHDATA_USERNAME"] = args.username
+            os.environ["EARTHDATA_PASSWORD"] = args.password
+        elif args.token:
+            os.environ["EARTHDATA_TOKEN"] = args.token
+        earthaccess.login()
+    except LoginAttemptFailure as e:
+        print(f"Login failed: {e}")
+        return
 
     dts = list(daily(args.start, args.end))
-    i = 0
-    while (len(dts) != 0) and i < 3:  # after 3 reties abort
-        url_create_fn = partial(
-            create_dt_url,
-            root=args.urlroot,
-            fname='',
-            subdirs=args.urlsubdirs)
-        fname_create_fn = partial(
-            create_dt_fpath,
-            root=args.localroot,
-            fname='',
-            subdirs=args.localsubdirs)
-        down_func = partial(
-            download,
-            num_proc=args.n_proc,
-            username=args.username,
-            password=args.password,
-            recursive=True,
-            filetypes=args.filetypes,
-            robots_off=True)
-
-        download_by_dt(
-            dts, url_create_fn, fname_create_fn, down_func, recursive=True)
-
-        dts = dates_empty_folders(args.localroot)  # missing dates
-        i += 1
+    results = earthaccess.search_data(
+        short_name=args.product_short_name,
+        version=args.version,
+        temporal=(args.start, args.end),
+    )
+    for dt in dts:
+        os.makedirs(
+            os.path.join(args.localroot, dt.strftime("%Y.%m.%d")), exist_ok=True
+        )
+    dts = dates_empty_folders(args.localroot)
+    for result in results:
+        dt = result["umm"]["TemporalExtent"]
+        # prepare local path for this product
+        local_path = os.path.join(args.localroot, dt.strftime("%Y.%m.%d"))
+        success = False
+        if dt not in dts:
+            continue
+        success = download_with_retries(
+            result, local_path, args.retries, args.retry_wait
+        )
+        if not success:
+            continue
+    dts = dates_empty_folders(args.localroot)
+    for dt in dts:
+        print(f"No data downloaded for date {dt.date()}")
 
     if len(dts) != 0:
-        print('----------------------------------------------------------')
-        print('----------------------------------------------------------')
-        print('No data has been downloaded for the following dates:')
+        print("----------------------------------------------------------")
+        print("----------------------------------------------------------")
+        print("No data has been downloaded for the following dates:")
         for date in dts:
             print(str(date.date()))
 
@@ -270,5 +356,6 @@ def main(args):
 def run():
     main(sys.argv[1:])
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()
