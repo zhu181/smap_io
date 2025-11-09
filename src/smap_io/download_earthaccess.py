@@ -244,6 +244,7 @@ def parse_args(args):
     )
     parser.add_argument("--username", help="Username to use for download.")
     parser.add_argument("--password", help="password to use for download.")
+    parser.add_argument("--token", help="Earthdata token to use for download.")
     parser.add_argument(
         "--n_threads",
         default=8,
@@ -274,7 +275,7 @@ def parse_args(args):
                 args.start = last
         if args.end is None:
             args.end = datetime.now()
-
+    args.product = args.product_short_name+"."+args.version
     print(
         f"Downloading SMAP {args.product} data from {args.start.isoformat()} "
         f"to {args.end.isoformat()} into folder {args.localroot}."
@@ -286,7 +287,7 @@ def parse_args(args):
 def download_with_retries(result, local_path, retries, retry_wait):
     for attempt in range(retries):
         try:
-            earthaccess.download(result, local_path=local_path)
+            earthaccess.download(result, local_path=local_path,show_progress=True)
             success = True
             break
         except Exception as e:
@@ -314,9 +315,13 @@ def main(args):
         elif args.token:
             os.environ["EARTHDATA_TOKEN"] = args.token
         earthaccess.login()
+    except AttributeError as e:
+        print(f"Missing login credentials: {e}")
+        return
     except LoginAttemptFailure as e:
         print(f"Login failed: {e}")
         return
+    
 
     dts = list(daily(args.start, args.end))
     results = earthaccess.search_data(
@@ -330,7 +335,8 @@ def main(args):
         )
     dts = dates_empty_folders(args.localroot)
     for result in results:
-        dt = result["umm"]["TemporalExtent"]
+        dt_str = result["umm"]["TemporalExtent"]['RangeDateTime']['BeginningDateTime']
+        dt=datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%fZ")
         # prepare local path for this product
         local_path = os.path.join(args.localroot, dt.strftime("%Y.%m.%d"))
         success = False
