@@ -25,22 +25,20 @@ Module to read single SMAP L3 images and image stacks
 """
 
 import os
+import warnings
+from datetime import timedelta
 
+import h5py
+import numpy as np
 import pandas as pd
+import pygeogrids.netcdf as ncdf
+from parse import *
 from pygeobase.io_base import ImageBase, MultiTemporalImageBase
 from pygeobase.object_base import Image
 from pygeogrids.netcdf import load_grid
-from pynetcf.time_series import GriddedNcOrthoMultiTs
-from pynetcf.time_series import GriddedNcContiguousRaggedTs
-import pygeogrids.netcdf as ncdf
-import h5py
-import numpy as np
-from parse import *
-from datetime import timedelta
-import warnings
-from smap_io.grid import EASE36CellGrid, EASE9CellGrid
-from datetime import datetime
-from pynetcf.time_series import GriddedNcIndexedRaggedTs
+from pynetcf.time_series import GriddedNcIndexedRaggedTs, GriddedNcOrthoMultiTs
+
+from smap_io.grid import EASE9CellGrid, EASE36CellGrid
 
 counter = 0
 
@@ -160,7 +158,7 @@ class SPL3SMP_Img_Base(ImageBase):
 
         if self.overpass is None:
             overpasses = []
-            for k in list(ds.keys()):
+            for k in ds.keys():
                 p = parse(self.overpass_templ, k)
                 if p is not None and ("orbit" in p.named.keys()):
                     overpasses.append(p["orbit"][1:])  # omit leading _
