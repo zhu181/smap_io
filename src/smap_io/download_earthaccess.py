@@ -13,6 +13,7 @@ import earthaccess
 import trollsift.parser as parser
 from earthaccess.exceptions import LoginAttemptFailure
 
+
 def mkdate(datestring):
     """
     Create datetime object from date string.
@@ -21,16 +22,17 @@ def mkdate(datestring):
     ----------
     datestring : str
         Date string in format 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM'
-    
+
     Returns
     -------
     datetime.datetime
         Corresponding datetime object
     """
     if len(datestring) == 10:
-        return datetime.strptime(datestring, '%Y-%m-%d')
+        return datetime.strptime(datestring, "%Y-%m-%d")
     if len(datestring) == 16:
-        return datetime.strptime(datestring, '%Y-%m-%dT%H:%M')
+        return datetime.strptime(datestring, "%Y-%m-%dT%H:%M")
+
 
 def daily(start, end):
     """
@@ -56,6 +58,7 @@ def daily(start, end):
         if dt > end:
             break
         yield dt
+
 
 def dates_empty_folders(img_dir, crid=None):
     """
@@ -275,7 +278,7 @@ def parse_args(args):
                 args.start = last
         if args.end is None:
             args.end = datetime.now()
-    args.product = args.product_short_name+"."+args.version
+    args.product = args.product_short_name + "." + args.version
     print(
         f"Downloading SMAP {args.product} data from {args.start.isoformat()} "
         f"to {args.end.isoformat()} into folder {args.localroot}."
@@ -287,7 +290,7 @@ def parse_args(args):
 def download_with_retries(result, local_path, retries, retry_wait):
     for attempt in range(retries):
         try:
-            earthaccess.download(result, local_path=local_path,show_progress=True)
+            earthaccess.download(result, local_path=local_path, show_progress=True)
             success = True
             break
         except Exception as e:
@@ -321,7 +324,6 @@ def main(args):
     except LoginAttemptFailure as e:
         print(f"Login failed: {e}")
         return
-    
 
     dts = list(daily(args.start, args.end))
     results = earthaccess.search_data(
@@ -335,18 +337,22 @@ def main(args):
         )
     dts = dates_empty_folders(args.localroot)
     for result in results:
-        dt_str = result["umm"]["TemporalExtent"]['RangeDateTime']['BeginningDateTime']
-        dt=datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%fZ")
+        dt_str = result["umm"]["TemporalExtent"]["RangeDateTime"]["BeginningDateTime"]
+        dt = datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%fZ")
         # prepare local path for this product
         local_path = os.path.join(args.localroot, dt.strftime("%Y.%m.%d"))
         success = False
         if dt not in dts:
             continue
+        print(f"Downloading data for {dt.date()}")
         success = download_with_retries(
             result, local_path, args.retries, args.retry_wait
         )
         if not success:
-            continue
+            print(f"Failed to download data for {dt.date()}")
+
+        else:
+            print(f"Successfully downloaded data for {dt.date()}")
     dts = dates_empty_folders(args.localroot)
     for dt in dts:
         print(f"No data downloaded for date {dt.date()}")
