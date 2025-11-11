@@ -287,10 +287,10 @@ def parse_args(args):
     return args
 
 
-def download_with_retries(result, local_path, retries, retry_wait):
+def download_with_retries(result, local_path, retries, retry_wait,n_threads=8):
     for attempt in range(retries):
         try:
-            earthaccess.download(result, local_path=local_path, show_progress=True)
+            earthaccess.download(result, local_path=local_path, show_progress=True, threads=n_threads)
             success = True
             break
         except Exception as e:
@@ -346,7 +346,7 @@ def main(args):
             continue
         print(f"Downloading data for {dt.date()}")
         success = download_with_retries(
-            result, local_path, args.retries, args.retry_wait
+            result, local_path, args.retries, args.retry_wait,n_threads=args.n_threads
         )
         if not success:
             print(f"Failed to download data for {dt.date()}")
