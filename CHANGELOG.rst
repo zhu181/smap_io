@@ -4,6 +4,21 @@ Changelog
 
 Unreleased
 ==========
+
+Version 0.8.1
+=============
+- Bugfix smap l3 timeseries reader extension reader
+
+Version 0.8
+===========
+- Add new smap l3 timeseries extension reader
+
+Version 0.7
+===========
+- Docker Update
+
+Version 0.6
+===========
 - New reader for GriddedNcIndexedRaggedTs timeseries format for SMAP-L3
   version 9 data
 - Add option to create a timeseries containing both ascending and descending
