@@ -645,20 +645,21 @@ class ReaderWithExtension_SMAP():
         return self.base_reader.grid
 
     def read(self, *args, **kwargs) -> pd.DataFrame:
-        """
-        Read time series at location for both the base dataset and the
-        extension. If extension is read, concatenate both in time.
-        """
-        try:
-            if self.ext_reader is not None:
-                ts = self.ext_reader.read(*args, **kwargs)
-            else:
-                ts = self.base_reader.read(*args, **kwargs)
-        except Exception as e:
-            logging.error(f"Extension reading failed for {args} {kwargs} with"
-                          f"error: {e}")
+            """
+            Read time series at location for both the base dataset and the
+            extension. If extension is read, concatenate both in time.
+            """
+            ts = self.base_reader.read(*args, **kwargs)
+            try:
+                if self.ext_reader is not None:
+                    ext = self.ext_reader.read(*args, **kwargs)
+                    ts = pd.concat([ts, ext], axis=0)
+                    ts = ts[~ts.index.duplicated(keep='last')]  # prefer ext. data
+            except Exception as e:
+                logging.error(f"Extension reading failed for {args} {kwargs} with"
+                            f"error: {e}")
 
-        return ts
+            return ts
 
 
 
